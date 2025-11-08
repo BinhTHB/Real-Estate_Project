@@ -1,24 +1,18 @@
-# 🏠 Real Estate Project
-
-[![Dagster](https://img.shields.io/badge/Dagster-1.6.8-blue)](https://dagster.io/)
-[![Delta Lake](https://img.shields.io/badge/Delta_Lake-3.0.0-green)](https://delta.io/)
-[![MinIO](https://img.shields.io/badge/MinIO-S3-orange)](https://min.io/)
-[![Python](https://img.shields.io/badge/Python-3.8+-yellow)](https://python.org/)
+# Real Estate Project
 
 Một pipeline data engineering thực tế để thu thập, xử lý và phân tích dữ liệu bất động sản Việt Nam từ nhadat247.com.vn.
 
-## 📋 Mục lục
+## Mục lục
 
-- [🏗️ Kiến trúc dự án](#-kiến-trúc-dự-án)
-- [✨ Tính năng chính](#-tính-năng-chính)
-- [🛠️ Công nghệ sử dụng](#️-công-nghệ-sử-dụng)
-- [🚀 Cài đặt và chạy](#-cài-đặt-và-chạy)
-- [📊 Sử dụng pipeline](#-sử-dụng-pipeline)
-- [🔍 Data Exploration](#-data-exploration)
-- [📁 Cấu trúc thư mục](#-cấu-trúc-thư-mục)
-- [🤝 Đóng góp](#-đóng-góp)
+- [Kiến trúc dự án](#-kiến-trúc-dự-án)
+- [Tính năng chính](#-tính-năng-chính)
+- [Công nghệ sử dụng](#️-công-nghệ-sử-dụng)
+- [Cài đặt và chạy](#-cài-đặt-và-chạy)
+- [Sử dụng pipeline](#-sử-dụng-pipeline)
+- [Data Exploration](#-data-exploration)
+- [Cấu trúc thư mục](#-cấu-trúc-thư-mục)
 
-## 🏗️ Kiến trúc dự án
+## Kiến trúc dự án
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -29,18 +23,18 @@ Một pipeline data engineering thực tế để thu thập, xử lý và phân
          └───────────────────────┼───────────────────────┼───────────────────────┘
                                  │                       │
                     ┌─────────────────┐         ┌─────────────────┐
-                    │    Dagster     │         │    DuckDB       │
-                    │ Orchestration  │         │   Analytics     │
+                    │    Dagster     │         │    Analytics    │
+                    │ Orchestration  │         │   (DuckDB)      │
                     └─────────────────┘         └─────────────────┘
 ```
 
 ### Luồng xử lý dữ liệu:
-1. **Scraping Layer**: Thu thập dữ liệu từ nhadat247.com.vn sử dụng requests + BeautifulSoup
+1. **Scraping Layer**: Thu thập dữ liệu từ nhadat247.com.vn sử dụng requests + BeautifulSoup, tránh DNS issues
 2. **Processing Layer**: Xử lý dữ liệu với Pandas, chuẩn hóa format
 3. **Storage Layer**: Lưu trữ ACID với Delta Lake trên MinIO S3-compatible
 4. **Exploration Layer**: Phân tích dữ liệu với Jupyter notebooks và DuckDB
 
-## ✨ Tính năng chính
+## Tính năng chính
 
 - ✅ **Web Scraping ổn định**: Sử dụng requests thay vì Selenium, tránh DNS issues
 - ✅ **ACID Transactions**: Delta Lake đảm bảo tính toàn vẹn dữ liệu
@@ -53,6 +47,7 @@ Một pipeline data engineering thực tế để thu thập, xử lý và phân
 
 ### Core Dependencies
 - **Dagster 1.6.8**: Workflow orchestration và pipeline management
+- **Dagster-DeltaLake-Pandas**: Delta Lake integration với Pandas
 - **Delta Lake**: ACID transactions và time travel cho data lake
 - **MinIO**: S3-compatible object storage
 - **PyArrow**: Apache Arrow cho data processing
@@ -67,7 +62,7 @@ Một pipeline data engineering thực tế để thu thập, xử lý và phân
 ### Development & Deployment
 - **Dagstermill**: Jupyter notebook integration với Dagster
 
-## 🚀 Cài đặt và chạy
+## Cài đặt và chạy
 
 ### Prerequisites
 - Python 3.8+
@@ -76,13 +71,17 @@ Một pipeline data engineering thực tế để thu thập, xử lý và phân
 
 ### 1. Clone repository
 ```bash
-git clone https://github.com/BinhTHB/Real-Estate_Project_Data_Engineering.git
-cd Real-Estate_Project_Data_Engineering
+git clone https://github.com/BinhTHB/Real-Estate_Project.git
+cd Real-Estate_Project
 ```
 
 ### 2. Cài đặt dependencies
 ```bash
 cd src/pipelines/real-estate
+
+# Kích hoạt virtual environment
+.venv\Scripts\activate  
+
 pip install -e ".[dev]"
 ```
 
@@ -109,13 +108,8 @@ Script này sẽ tự động:
 - Chờ MinIO sẵn sàng
 - Khởi động Dagster development server
 - Hiển thị tất cả access points
-```bash
-dagster dev --port 3000
-```
 
-Truy cập Dagster UI tại: http://localhost:3000
-
-## 📊 Sử dụng pipeline
+## Sử dụng pipeline
 
 ### Chạy pipeline scraping
 
@@ -181,10 +175,10 @@ Dữ liệu thu thập bao gồm:
 - `latitude/longitude`: Tọa độ GPS
 - `propertyDetails_propertyId`: ID unique (hash từ URL)
 
-## 📁 Cấu trúc thư mục
+## Cấu trúc thư mục
 
 ```
-Real-Estate_Project_Data_Engineering/
+Real-Estate_Project/
 ├── src/
 │   └── pipelines/
 │       └── real-estate/
@@ -208,48 +202,10 @@ Real-Estate_Project_Data_Engineering/
 └── README.md                      # This file
 ```
 
-## 🤝 Đóng góp
-
-### Development setup
-
-```bash
-# Install development dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Format code
-black .
-isort .
-```
-
-### Code quality
-
-- **Black**: Code formatting
-- **isort**: Import sorting
-- **pytest**: Unit testing
-- **Dagster**: Pipeline testing
-
-### Adding new features
-
-1. Tạo feature branch từ `main`
-2. Implement changes
-3. Add tests
-4. Update documentation
-5. Create pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [Dagster](https://dagster.io/) - Workflow orchestration
 - [Delta Lake](https://delta.io/) - Data lakehouse
 - [MinIO](https://min.io/) - Object storage
 - [nhadat247.com.vn](https://nhadat247.com.vn) - Data source
 
----
-
-**Built with ❤️ for the Vietnamese real estate data engineering community**
