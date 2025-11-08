@@ -80,7 +80,7 @@ cd Real-Estate_Project
 cd src/pipelines/real-estate
 
 # Kích hoạt virtual environment
-.venv\Scripts\activate  
+.\venv\Scripts\activate  
 
 pip install -e ".[dev]"
 ```
@@ -95,7 +95,7 @@ MinIO sẽ chạy tại:
 - **Username**: `minioadmin`
 - **Password**: `minioadmin`
 
-### 4. startup dagster
+### 4. Startup dagster
 ```bash
 dagster dev
 ```
@@ -104,7 +104,7 @@ dagster dev
 
 ### Chạy pipeline scraping
 
-1. Mở Dagster UI tại http://localhost:3000
+1. Mở Dagster UI tại http://127.0.0.1:3000
 2. Chọn job `scrape_realestate`
 3. Launch với configuration mặc định hoặc tùy chỉnh:
 
