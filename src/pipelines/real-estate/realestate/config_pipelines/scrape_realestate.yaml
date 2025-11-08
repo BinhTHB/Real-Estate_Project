@@ -1,0 +1,34 @@
+ops:
+  collect_search_criterias:
+    inputs:
+      # PLEASE be aware, settings below will scrape the website. Everything shown here is demonstrated for learning purposes only. Before you begin, make sure you don’t violate the copyright of any website and always be friendly when scraping.
+      search_criterias:
+        # - city: Bern
+        #   propertyType: real-estate
+        #   radius: 0
+        #   rentOrBuy: buy
+        # - city: Solothurn
+        #   propertyType: real-estate
+        #   radius: 0
+        #   rentOrBuy: buy
+        - city: hanoi
+          propertyType: can-ho-chung-cu
+          radius: 0
+          rentOrBuy: buy
+        # - city: biel-bienne
+        #   propertyType: real-estate
+        #   radius: 0
+        #   rentOrBuy: buy
+
+  requests_scrape_properties:
+    ops:
+      requests_scraping_op:
+        config:
+          limit_each_page: 20  # Production scale: scrape 20 properties per page
+          # limit_each_page: 5  # Development scale: scrape 5 properties per page
+  data_exploration:
+    inputs:
+      # delta_path: s3a://real-estate/lake/bronze/property
+      key: minioadmin
+      secret: minioadmin
+      endpoint: http://127.0.0.1:9000
