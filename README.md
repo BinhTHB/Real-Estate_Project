@@ -34,9 +34,11 @@ Một pipeline data engineering thực tế để thu thập, xử lý và phân
 3. **Storage Layer**: Lưu trữ ACID với Delta Lake trên MinIO S3-compatible
 4. **Exploration Layer**: Phân tích dữ liệu với Jupyter notebooks và DuckDB
 
+**Key Data Flow**: Search Criteria → URL Generation → Threaded Requests Scraping → DataFrame Processing → Delta Lake Merge → Jupyter Exploration
+
 ## Tính năng chính
 
-- ✅ **Web Scraping ổn định**: Sử dụng requests thay vì Selenium, tránh DNS issues
+- ✅ **Web Scraping ổn định**: Sử dụng requests + BeautifulSoup, tránh DNS issues của Chrome/Selenium
 - ✅ **ACID Transactions**: Delta Lake đảm bảo tính toàn vẹn dữ liệu
 - ✅ **Schema Evolution**: Tự động adapt khi schema thay đổi
 - ✅ **Cloud Storage**: MinIO S3-compatible cho storage agnostic
@@ -52,9 +54,7 @@ Một pipeline data engineering thực tế để thu thập, xử lý và phân
 - **MinIO**: S3-compatible object storage
 - **PyArrow**: Apache Arrow cho data processing
 - **Pandas**: Data manipulation và analysis
-- **DuckDB**: In-process analytical database
-
-### Scraping & Processing
+- **DuckDB**: In-process analytical database (sử dụng trong notebooks)
 - **Requests**: HTTP client cho web scraping
 - **BeautifulSoup4**: HTML parsing
 - **Boto3**: AWS S3 API client (MinIO compatible)
@@ -79,11 +79,19 @@ cd Real-Estate_Project
 ```bash
 cd src/pipelines/real-estate
 
-# Kích hoạt virtual environment
-.\venv\Scripts\activate  
+# Kích hoạt virtual environment (nếu có)
+# .\venv\Scripts\activate  
 
 pip install -e ".[dev]"
 ```
+
+Dependencies chính bao gồm:
+- Dagster ecosystem (dagster, dagstermill, dagster-aws, dagster-postgres, dagster-deltalake)
+- Data processing (pandas, pyarrow, numpy, scipy, scikit-learn)
+- Web scraping (requests, beautifulsoup4)
+- Cloud storage (boto3)
+- Analytics (duckdb, seaborn, matplotlib, folium)
+- Development (pytest, notebook)
 
 ### 3. Khởi động MinIO storage
 ```bash
@@ -132,12 +140,21 @@ Dagster UI cung cấp:
 
 ### Jupyter Notebook
 
-Pipeline tự động chạy notebook `main_notebook.ipynb` sau khi scrape data:
+Pipeline tự động chạy notebook `main_notebook.ipynb` sau khi scrape data. Notebook sử dụng DuckDB để query data từ Delta Lake trên MinIO:
 
 ```python
 # Trong notebook có thể:
 import duckdb
 import pandas as pd
+
+# Cấu hình kết nối MinIO
+duckdb.sql("""
+INSTALL httpfs;
+LOAD httpfs;
+SET s3_endpoint='127.0.0.1:9000';
+SET s3_access_key_id='minioadmin';
+SET s3_secret_access_key='minioadmin';
+""")
 
 # Query data từ Delta Lake
 df = duckdb.sql("SELECT * FROM read_parquet(['s3://real-estate/lake/bronze/property/*.parquet'])").df()
@@ -146,7 +163,7 @@ df = duckdb.sql("SELECT * FROM read_parquet(['s3://real-estate/lake/bronze/prope
 result = duckdb.sql("""
     SELECT
         "Mức giá",
-        "Diện tích",
+        "Diện tích", 
         latitude,
         longitude,
         COUNT(*) as count
@@ -159,12 +176,13 @@ result = duckdb.sql("""
 
 Dữ liệu thu thập bao gồm:
 - `url`: Link bài đăng
-- `Tiêu đề`: Tiêu đề bất động sản
+- `Tiêu đề`: Tiêu đề bất động sản  
 - `Mức giá`: Giá (tỷ/triệu VNĐ)
 - `Diện tích`: Diện tích (m²)
 - `Địa chỉ`: Địa chỉ chi tiết
 - `latitude/longitude`: Tọa độ GPS
 - `propertyDetails_propertyId`: ID unique (hash từ URL)
+- `Ngày đăng`: Ngày thu thập dữ liệu
 
 ## Cấu trúc thư mục
 
@@ -174,21 +192,24 @@ Real-Estate_Project/
 │   └── pipelines/
 │       └── real-estate/
 │           ├── realestate/           # Core pipeline code
+│           │   ├── pipelines.py      # Main job definitions và orchestration
+│           │   ├── resources.py      # Dagster resources (database/S3 configs)
 │           │   ├── common/           # Shared utilities
-│           │   │   ├── requests_scraping.py    # Web scraping logic
-│           │   │   ├── solids_spark_delta.py   # Delta Lake operations
+│           │   │   ├── requests_scraping.py    # Web scraping logic (requests + BS4)
+│           │   │   ├── solids_spark_delta.py   # Delta Lake operations (merge/upsert)
+│           │   │   ├── types_realestate.py     # Custom data types
+│           │   │   ├── helper_functions.py     # Utility functions
 │           │   │   ├── solids_jupyter.py       # Notebook integration
-│           │   │   └── types_realestate.py     # Custom types
-│           │   ├── config_environments/        # Environment configs
-│           │   ├── config_pipelines/          # Pipeline configs
-│           │   ├── notebooks/                 # Data exploration
-│           │   ├── pipelines.py               # Main pipeline definition
-│           │   └── resources.py               # Dagster resources
-│           ├── setup.py                       # Package setup
-│           └── pyproject.toml                 # Project metadata
-├── MinIO_run.bat                  # MinIO startup script
-├── deploy_production.bat          # Production deployment script
-├── PRODUCTION_FEATURES_GUIDE.md   # Production features documentation
+│           │   │   └── resources.py            # Resource definitions (boto3, etc.)
+│           │   ├── config_environments/        # Environment configs (local/prod)
+│           │   ├── config_pipelines/          # Pipeline execution parameters
+│           │   └── notebooks/                 # Data exploration notebooks
+│           ├── setup.py                       # Package setup với dependencies
+│           ├── pyproject.toml                 # Project metadata
+│           ├── dev-requirements.txt           # Development dependencies
+│           └── tox.ini                        # Testing configuration
+├── lake/bronze/                  # Delta Lake storage (runtime)
+├── PRODUCTION_FEATURES_GUIDE.md   # Production deployment guide
 ├── .github/copilot-instructions.md # AI assistant instructions
 └── README.md                      # This file
 ```
