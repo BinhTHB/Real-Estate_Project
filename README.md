@@ -87,27 +87,18 @@ pip install -e ".[dev]"
 
 ### 3. Khởi động MinIO storage
 ```bash
-# Windows
-.\MinIO_run.bat
+minio server /tmp/minio/
 ```
 
 MinIO sẽ chạy tại:
 - **API Endpoint**: `http://127.0.0.1:9000`
-- **Web Console**: `http://127.0.0.1:9001`
 - **Username**: `minioadmin`
 - **Password**: `minioadmin`
 
-### 4. Quick deployment (Alternative)
+### 4. startup dagster
 ```bash
-# Run everything with one command
-.\deploy_production.bat
+dagster dev
 ```
-
-Script này sẽ tự động:
-- Khởi động MinIO storage
-- Chờ MinIO sẵn sàng
-- Khởi động Dagster development server
-- Hiển thị tất cả access points
 
 ## Sử dụng pipeline
 
@@ -141,7 +132,7 @@ Dagster UI cung cấp:
 
 ### Jupyter Notebook
 
-Pipeline tự động chạy notebook `TEST.ipynb` sau khi scrape data:
+Pipeline tự động chạy notebook `main_notebook.ipynb` sau khi scrape data:
 
 ```python
 # Trong notebook có thể:
