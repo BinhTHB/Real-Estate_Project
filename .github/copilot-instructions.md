@@ -152,3 +152,5 @@ realestate/
 <parameter name="filePath">.github/copilot-instructions.md
 
 before running any file, activate the virtual environment in `src/pipelines/real-estate/.venv`
+
+all project code is under `src/pipelines/real-estate/`

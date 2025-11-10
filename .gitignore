@@ -185,3 +185,6 @@ tmp_*/
 
 # Data lake directories (Delta Lake data)
 src/pipelines/real-estate/lake/
+
+#
+.github 

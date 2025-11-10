@@ -10,31 +10,33 @@ Một pipeline data engineering thực tế để thu thập, xử lý và phân
 - [Cài đặt và chạy](#-cài-đặt-và-chạy)
 - [Sử dụng pipeline](#-sử-dụng-pipeline)
 - [Data Exploration](#-data-exploration)
+- [PostgreSQL Export](#️-postgresql-export)
 - [Cấu trúc thư mục](#-cấu-trúc-thư-mục)
 
 ## Kiến trúc dự án
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Web Scraping  │ -> │   Data Process  │ -> │   Delta Lake    │ -> │   Data Explore  │
-│  (Requests + BS)│    │   (Pandas)      │    │   (MinIO S3)    │    │   (Jupyter)     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │                       │
-         └───────────────────────┼───────────────────────┼───────────────────────┘
-                                 │                       │
-                    ┌─────────────────┐         ┌─────────────────┐
-                    │    Dagster     │         │    Analytics    │
-                    │ Orchestration  │         │   (DuckDB)      │
-                    └─────────────────┘         └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Web Scraping  │ -> │   Data Process  │ -> │   Delta Lake    │ -> │   PostgreSQL    │ -> │   Data Explore  │
+│  (Requests + BS)│    │   (Pandas)      │    │   (MinIO S3)    │    │   (Export)      │    │   (Jupyter)     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │                       │                       │
+         └───────────────────────┼───────────────────────┼───────────────────────┼───────────────────────┘
+                                 │                       │                       │
+                    ┌─────────────────┐         ┌─────────────────┐    ┌─────────────────┐
+                    │    Dagster     │         │    Analytics    │    │   SQL Queries   │
+                    │ Orchestration  │         │   (DuckDB)      │    │  (PostgreSQL)   │
+                    └─────────────────┘         └─────────────────┘    └─────────────────┘
 ```
 
 ### Luồng xử lý dữ liệu:
 1. **Scraping Layer**: Thu thập dữ liệu từ nhadat247.com.vn sử dụng requests + BeautifulSoup, tránh DNS issues
 2. **Processing Layer**: Xử lý dữ liệu với Pandas, chuẩn hóa format
 3. **Storage Layer**: Lưu trữ ACID với Delta Lake trên MinIO S3-compatible
-4. **Exploration Layer**: Phân tích dữ liệu với Jupyter notebooks và DuckDB
+4. **Database Layer**: Tự động export từ Delta Lake sang PostgreSQL trong pipeline
+5. **Analytics Layer**: Chạy SQL queries và Jupyter notebooks cho data exploration
 
-**Key Data Flow**: Search Criteria → URL Generation → Threaded Requests Scraping → DataFrame Processing → Delta Lake Merge → Jupyter Exploration
+**Key Data Flow**: Search Criteria → URL Generation → Threaded Requests Scraping → DataFrame Processing → Delta Lake Merge → PostgreSQL Export → SQL Analytics
 
 ## Tính năng chính
 
@@ -42,7 +44,9 @@ Một pipeline data engineering thực tế để thu thập, xử lý và phân
 - ✅ **ACID Transactions**: Delta Lake đảm bảo tính toàn vẹn dữ liệu
 - ✅ **Schema Evolution**: Tự động adapt khi schema thay đổi
 - ✅ **Cloud Storage**: MinIO S3-compatible cho storage agnostic
-- ✅ **Data Exploration**: Jupyter notebooks với DuckDB analytics
+- ✅ **PostgreSQL Integration**: Pipeline tự động export từ Delta Lake sang PostgreSQL
+- ✅ **Analytics Queries**: Script chuyên dụng để chạy SQL analytics trên PostgreSQL
+- ✅ **Data Exploration**: Jupyter notebooks với DuckDB và PostgreSQL queries
 - ✅ **Monitoring**: Dagster UI cho pipeline monitoring
 
 ## 🛠️ Công nghệ sử dụng
@@ -50,24 +54,23 @@ Một pipeline data engineering thực tế để thu thập, xử lý và phân
 ### Core Dependencies
 - **Dagster 1.6.8**: Workflow orchestration và pipeline management
 - **Dagster-DeltaLake-Pandas**: Delta Lake integration với Pandas
+- **Dagster-Postgres**: PostgreSQL integration
 - **Delta Lake**: ACID transactions và time travel cho data lake
+- **PostgreSQL**: Relational database cho analytics và reporting
 - **MinIO**: S3-compatible object storage
 - **PyArrow**: Apache Arrow cho data processing
 - **Pandas**: Data manipulation và analysis
 - **DuckDB**: In-process analytical database (sử dụng trong notebooks)
+- **SQLAlchemy**: ORM cho database operations
 - **Requests**: HTTP client cho web scraping
 - **BeautifulSoup4**: HTML parsing
 - **Boto3**: AWS S3 API client (MinIO compatible)
 
 ### Development & Deployment
 - **Dagstermill**: Jupyter notebook integration với Dagster
+- **PostgreSQL Export Op**: Tích hợp export vào pipeline Dagster
 
 ## Cài đặt và chạy
-
-### Prerequisites
-- Python 3.8+
-- Git
-- Windows OS
 
 ### 1. Clone repository
 ```bash
@@ -92,6 +95,7 @@ pip install -r dev-requirements.txt
 Dependencies chính bao gồm:
 - Dagster ecosystem (dagster, dagstermill, dagster-aws, dagster-postgres, dagster-deltalake)
 - Data processing (pandas, pyarrow, numpy, scipy, scikit-learn)
+- Database (sqlalchemy, psycopg2-binary)
 - Web scraping (requests, beautifulsoup4)
 - Cloud storage (boto3)
 - Analytics (duckdb, seaborn, matplotlib, folium)
@@ -107,47 +111,150 @@ MinIO sẽ chạy tại:
 - **Username**: `minioadmin`
 - **Password**: `minioadmin`
 
-### 4. Startup dagster
+### 4. Chạy pipeline đầy đủ
+
 ```bash
+# Khởi động Dagster UI
 dagster dev
+
+# Mở http://127.0.0.1:3000 và chạy job scrape_realestate
+# Pipeline sẽ tự động: Scrape → Delta Lake → PostgreSQL Export → Analytics
+```
+
+### 5. Chạy analytics queries (tùy chọn)
+
+```bash
+cd src/pipelines/real-estate
+
+# Chạy analytics queries trên dữ liệu PostgreSQL
+python postgres_analytics.py
 ```
 
 ## Sử dụng pipeline
 
-### Chạy pipeline scraping
+### Chạy pipeline đầy đủ
 
-1. Mở Dagster UI tại http://127.0.0.1:3000
-2. Chọn job `scrape_realestate`
-3. Launch với configuration mặc định hoặc tùy chỉnh:
+1. Khởi động MinIO và Dagster:
+```bash
+# Terminal 1: MinIO
+minio server /tmp/minio/
 
-```yaml
-# scrape_realestate.yaml
-solids:
-  collect_search_criterias:
-    inputs:
-      search_criterias:
-        - city: "hanoi"
-          propertyType: "can-ho-chung-cu"
-          rentOrBuy: "buy"
-          radius: 0
+# Terminal 2: Dagster
+dagster dev
 ```
 
-### Monitoring pipeline
+2. Mở Dagster UI tại http://127.0.0.1:3000
+3. Chọn job `scrape_realestate` và launch
 
-Dagster UI cung cấp:
-- ✅ **Pipeline runs**: Lịch sử executions
-- ✅ **Logs**: Chi tiết từng step
-- ✅ **Data lineage**: Flow của data
-- ✅ **Asset catalog**: Datasets được tạo
+**Pipeline sẽ tự động thực hiện:**
+- ✅ Scrape dữ liệu từ nhadat247.com.vn
+- ✅ Lưu vào Delta Lake trên MinIO
+- ✅ Export dữ liệu sang PostgreSQL
+- ✅ Chạy data exploration notebook
 
 ## 🔍 Data Exploration
 
-### Jupyter Notebook
+### PostgreSQL Analytics
 
-Pipeline tự động chạy notebook `main_notebook.ipynb` sau khi scrape data. Notebook sử dụng DuckDB để query data từ Delta Lake trên MinIO:
+Sau khi export dữ liệu sang PostgreSQL, có thể sử dụng SQL queries trực tiếp cho analytics:
+
+```sql
+-- Thống kê cơ bản
+SELECT 
+    COUNT(*) as total_properties,
+    AVG(muc_gia::float) as avg_price,
+    MIN(muc_gia::float) as min_price,
+    MAX(muc_gia::float) as max_price,
+    AVG(dien_tich::float) as avg_area
+FROM real_estate_properties
+WHERE muc_gia IS NOT NULL AND dien_tich IS NOT NULL;
+
+-- Giá theo khu vực
+SELECT 
+    ia_chi,
+    COUNT(*) as property_count,
+    AVG(muc_gia::float) as avg_price
+FROM real_estate_properties
+WHERE ia_chi IS NOT NULL
+GROUP BY ia_chi
+ORDER BY avg_price DESC;
+
+-- Phân tích theo loại bất động sản
+SELECT 
+    property_type,
+    COUNT(*) as count,
+    AVG(muc_gia::float) as avg_price,
+    AVG(dien_tich::float) as avg_area
+FROM real_estate_properties
+WHERE property_type IS NOT NULL
+GROUP BY property_type
+ORDER BY count DESC;
+```
+
+### Python Analytics với PostgreSQL
+
+Sử dụng SQLAlchemy hoặc pandas để kết nối và phân tích:
 
 ```python
-# Trong notebook có thể:
+import pandas as pd
+import sqlalchemy as sa
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Kết nối PostgreSQL
+engine = sa.create_engine('postgresql://user:password@host:port/database')
+
+# Query dữ liệu
+query = """
+SELECT 
+    muc_gia::float as price,
+    dien_tich::float as area,
+    ia_chi as location,
+    latitude,
+    longitude
+FROM real_estate_properties
+WHERE muc_gia IS NOT NULL 
+  AND dien_tich IS NOT NULL 
+  AND latitude IS NOT NULL
+"""
+
+df = pd.read_sql(query, engine)
+
+# Visualization
+plt.figure(figsize=(12, 8))
+sns.scatterplot(data=df, x='area', y='price', alpha=0.6)
+plt.title('Giá bất động sản theo diện tích')
+plt.xlabel('Diện tích (m²)')
+plt.ylabel('Giá (tỷ VNĐ)')
+plt.show()
+
+# Thống kê theo khu vực
+location_stats = df.groupby('location').agg({
+    'price': ['count', 'mean', 'median'],
+    'area': 'mean'
+}).round(2)
+
+print(location_stats.head(10))
+```
+
+Sau khi pipeline hoàn thành, sử dụng script `postgres_analytics.py` để chạy analytics queries trên dữ liệu PostgreSQL:
+
+```bash
+cd src/pipelines/real-estate
+
+# Chạy analytics queries trên dữ liệu PostgreSQL
+python postgres_analytics.py
+
+# Với tùy chọn giới hạn kết quả
+python postgres_analytics.py --limit-results 20
+```
+
+
+### Jupyter Notebook (Tùy chọn)
+
+Pipeline cũng hỗ trợ Jupyter notebook với DuckDB để query data từ Delta Lake trên MinIO:
+
+```python
 import duckdb
 import pandas as pd
 
@@ -162,66 +269,50 @@ SET s3_secret_access_key='minioadmin';
 
 # Query data từ Delta Lake
 df = duckdb.sql("SELECT * FROM read_parquet(['s3://real-estate/lake/bronze/property/*.parquet'])").df()
-
-# Analytics với DuckDB
-result = duckdb.sql("""
-    SELECT
-        "Mức giá",
-        "Diện tích", 
-        latitude,
-        longitude,
-        COUNT(*) as count
-    FROM df
-    GROUP BY "Mức giá", "Diện tích", latitude, longitude
-""").df()
 ```
 
 ### Data Schema
 
 Dữ liệu thu thập bao gồm:
 - `url`: Link bài đăng
-- `Tiêu đề`: Tiêu đề bất động sản  
-- `Mức giá`: Giá (tỷ/triệu VNĐ)
-- `Diện tích`: Diện tích (m²)
-- `Địa chỉ`: Địa chỉ chi tiết
+- `tieu_e`: Tiêu đề bất động sản  
+- `muc_gia`: Giá (tỷ/triệu VNĐ)
+- `dien_tich`: Diện tích (m²)
+- `ia_chi`: Địa chỉ chi tiết
 - `latitude/longitude`: Tọa độ GPS
-- `propertyDetails_propertyId`: ID unique (hash từ URL)
-- `Ngày đăng`: Ngày thu thập dữ liệu
+- `propertydetails_propertyid`: ID unique (hash từ URL)
+- `ngay_ang`: Ngày thu thập dữ liệu
 
-## Cấu trúc thư mục
+### Export tích hợp trong Pipeline
 
-```
-Real-Estate_Project/
-├── src/
-│   └── pipelines/
-│       └── real-estate/
-│           ├── realestate/           # Core pipeline code
-│           │   ├── pipelines.py      # Main job definitions và orchestration
-│           │   ├── resources.py      # Dagster resources (database/S3 configs)
-│           │   ├── common/           # Shared utilities
-│           │   │   ├── requests_scraping.py    # Web scraping logic (requests + BS4)
-│           │   │   ├── solids_spark_delta.py   # Delta Lake operations (merge/upsert)
-│           │   │   ├── types_realestate.py     # Custom data types
-│           │   │   ├── helper_functions.py     # Utility functions
-│           │   │   ├── solids_jupyter.py       # Notebook integration
-│           │   │   └── resources.py            # Resource definitions (boto3, etc.)
-│           │   ├── config_environments/        # Environment configs (local/prod)
-│           │   ├── config_pipelines/          # Pipeline execution parameters
-│           │   └── notebooks/                 # Data exploration notebooks
-│           ├── setup.py                       # Package setup với dependencies
-│           ├── pyproject.toml                 # Project metadata
-│           ├── dev-requirements.txt           # Development dependencies
-│           └── tox.ini                        # Testing configuration
-├── lake/bronze/                  # Delta Lake storage (runtime)
-├── PRODUCTION_FEATURES_GUIDE.md   # Production deployment guide
-├── .github/copilot-instructions.md # AI assistant instructions
-└── README.md                      # This file
+Export dữ liệu từ Delta Lake sang PostgreSQL đã được tích hợp trực tiếp vào pipeline Dagster. Khi chạy job `scrape_realestate`, pipeline sẽ tự động:
+
+1. ✅ **Scrape dữ liệu** từ nhadat247.com.vn
+2. ✅ **Lưu vào Delta Lake** trên MinIO S3-compatible
+3. ✅ **Export sang PostgreSQL** với schema auto-detection
+4. ✅ **Tạo indexes** cho performance
+5. ✅ **Verify dữ liệu** sau export
+
+
+### Cấu hình PostgreSQL
+
+File `postgres_credentials.yaml` chứa thông tin kết nối:
+
+```yaml
+postgresql:
+  host: your-postgres-host
+  port: 5432
+  database: your-database
+  user: your-username
+  password: your-password
 ```
 
 ## Acknowledgments
 
 - [Dagster](https://dagster.io/) - Workflow orchestration
 - [Delta Lake](https://delta.io/) - Data lakehouse
+- [PostgreSQL](https://postgresql.org/) - Relational database
+- [SQLAlchemy](https://sqlalchemy.org/) - Python SQL toolkit
 - [MinIO](https://min.io/) - Object storage
 - [nhadat247.com.vn](https://nhadat247.com.vn) - Data source
 
