@@ -79,6 +79,8 @@ cd Real-Estate_Project
 ```bash
 cd src/pipelines/real-estate
 
+# Tạo virtual environment (nếu chưa có)
+python -m venv .venv
 # Kích hoạt virtual environment 
 .\venv\Scripts\activate  
 
