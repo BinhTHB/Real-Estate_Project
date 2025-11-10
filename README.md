@@ -83,7 +83,7 @@ cd src/pipelines/real-estate
 .\venv\Scripts\activate  
 
 pip install -e ".[dev]"
-```
+
 pip install -r dev-requirements.txt
 ```
 
