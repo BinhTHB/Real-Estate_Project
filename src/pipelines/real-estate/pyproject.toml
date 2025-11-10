@@ -3,5 +3,35 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "realestate"
+dependencies = [
+    "dagster==1.6.8",
+    "dagster-pandas",
+    "dagstermill",
+    "notebook",
+    "dagster-aws",
+    "dagster-postgres",
+    "dagster-webserver",
+    "dagster-deltalake",
+    "dagster-deltalake-pandas",
+    "pyarrow",
+    "pandas",
+    "boto3",
+    "pandasql",
+    "pyyaml",
+    "numpy",
+    "seaborn",
+    "folium",
+    "ijson",
+    "koalas",
+    "scipy",
+    "matplotlib",
+    "scikit-learn",
+    "beautifulsoup4",
+]
+[project.optional-dependencies]
+dev = ["dagster-webserver", "pytest"]
+
 [tool.dagster]
 module_name = "realestate"
