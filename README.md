@@ -82,14 +82,10 @@ cd Real-Estate_Project
 ```bash
 cd src/pipelines/real-estate
 
-# Tạo virtual environment (nếu chưa có)
-python -m venv .venv
-# Kích hoạt virtual environment 
+# Giải nén venv_backup.zip
+
 .\venv\Scripts\activate  
 
-pip install -e ".[dev]"
-
-pip install -r dev-requirements.txt
 ```
 
 Dependencies chính bao gồm:
