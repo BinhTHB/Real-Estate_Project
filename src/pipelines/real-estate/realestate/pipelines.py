@@ -30,21 +30,63 @@ logger = logging.getLogger(__name__)
 
 
 @op(description="Generate URLs from search criteria", out=Out(io_manager_key="fs_io_manager"))
-def generate_urls_from_criteria(context, search_criteria: Dict) -> List[str]:
+def generate_urls_from_criteria(context, search_criteria) -> List[str]:
     """
     Đây chỉ trả về list URL (các trang kết quả) dựa trên search_criteria.
-    search_criteria có thể là dict hoặc tuple/list có 1 phần tử dict.
+    search_criteria có thể là dict hoặc SearchCoordinate type.
     """
     # normalize potential dagster wrapping (tuple/list length 1)
     if isinstance(search_criteria, (tuple, list)) and len(search_criteria) == 1:
         search_criteria = search_criteria[0]
 
-    context.log.info(f"🔹 Generating URLs for: {search_criteria}")
-    city = search_criteria.get("city", "")
-    propType = search_criteria.get("propertyType", "")
-    rentOrBuy = search_criteria.get("rentOrBuy", "buy")
+    # Convert SearchCoordinate to dict if needed
+    if hasattr(search_criteria, '_asdict'):  # NamedTuple-like
+        search_dict = search_criteria._asdict()
+    elif hasattr(search_criteria, '__dict__'):  # Object with attributes
+        search_dict = search_criteria.__dict__
+    elif isinstance(search_criteria, dict):
+        search_dict = search_criteria
+    else:
+        # Try to access as dict-like
+        search_dict = dict(search_criteria) if hasattr(search_criteria, 'keys') else {}
+
+    context.log.info(f"🔹 Generating URLs for: {search_dict}")
+    city = search_dict.get("city", "")
+    propType = search_dict.get("propertyType", "")
+    rentOrBuy = search_dict.get("rentOrBuy", "buy")
 
     city_slug = city.replace(" ", "-").lower() if city else ""
+    
+    # Property type to category code mapping
+    # Based on nhadat247.com.vn URL patterns
+    property_type_map = {
+        "can-ho-chung-cu": "ci38",  # Apartments
+        "nha-rieng": "ci40",       # Houses
+        "nha-mat-pho": "ci41",     # Shophouses
+        "dat-nen": "ci42",         # Land
+        "van-phong": "ci43",       # Offices
+        "phong-tro": "ci44",       # Rooms for rent
+        "real-estate": "ci38",     # General real estate
+        "house": "ci40",           # Houses
+        "flat": "ci38",            # Apartments
+        "plot": "ci42",            # Land
+        "parking-space": "ci45",   # Parking
+        "multi-family-residential": "ci46", # Multi-family
+        "office-commerce-industry": "ci43", # Offices
+        "agriculture": "ci47",     # Agriculture
+        "other-objects": "ci48",   # Other
+    }
+    
+    # Rent/Buy action mapping
+    action_map = {
+        "buy": "mua-ban",
+        "rent": "cho-thue"
+    }
+    
+    # Get category code, default to ci38
+    category_code = property_type_map.get(propType, "ci38")
+    action = action_map.get(rentOrBuy, "mua-ban")
+    
     # Comprehensive mapping for all Vietnamese provinces and cities
     city_map = {
         # Major cities
@@ -52,228 +94,230 @@ def generate_urls_from_criteria(context, search_criteria: Dict) -> List[str]:
         "ha-noi": "ha-noi-xc1",
         "hà-nội": "ha-noi-xc1",
         "hà nội": "ha-noi-xc1",
-        "ho-chi-minh": "ho-chi-minh-xc79",
-        "hochiminh": "ho-chi-minh-xc79",
-        "ho-chi-minh-city": "ho-chi-minh-xc79",
-        "sai-gon": "ho-chi-minh-xc79",
-        "saigon": "ho-chi-minh-xc79",
-        "tp-hcm": "ho-chi-minh-xc79",
-        "tphcm": "ho-chi-minh-xc79",
+        "ho-chi-minh": "tp-hcm-xc79",
+        "hochiminh": "tp-hcm-xc79",
+        "ho-chi-minh-city": "tp-hcm-xc79",
+        "sai-gon": "tp-hcm-xc79",
+        "saigon": "tp-hcm-xc79",
+        "tp-hcm": "tp-hcm-xc79",
+        "tphcm": "tp-hcm-xc79",
         "da-nang": "da-nang-xc48",
         "danang": "da-nang-xc48",
         "đà-nẵng": "da-nang-xc48",
         "đà nẵng": "da-nang-xc48",
-        "hai-phong": "hai-phong-xc2",
-        "haiphong": "hai-phong-xc2",
-        "hải-phòng": "hai-phong-xc2",
-        "hải phòng": "hai-phong-xc2",
-        "can-tho": "can-tho-xc55",
-        "cantho": "can-tho-xc55",
-        "cần-thơ": "can-tho-xc55",
-        "cần thơ": "can-tho-xc55",
+        "hai-phong": "hai-phong-xc31",
+        "haiphong": "hai-phong-xc31",
+        "hải-phòng": "hai-phong-xc31",
+        "hải phòng": "hai-phong-xc31",
+        "can-tho": "can-tho-xc92",
+        "cantho": "can-tho-xc92",
+        "cần-thơ": "can-tho-xc92",
+        "cần thơ": "can-tho-xc92",
 
         # Northern provinces
-        "bac-giang": "bac-giang-xc3",
-        "bac-giang": "bac-giang-xc3",
-        "bac-kan": "bac-kan-xc4",
-        "bắc-kạn": "bac-kan-xc4",
-        "bắc kạn": "bac-kan-xc4",
-        "bac-ninh": "bac-ninh-xc5",
-        "bắc-ninh": "bac-ninh-xc5",
-        "bắc ninh": "bac-ninh-xc5",
-        "cao-bang": "cao-bang-xc6",
-        "cao-bang": "cao-bang-xc6",
-        "dien-bien": "dien-bien-xc7",
-        "điện-biên": "dien-bien-xc7",
-        "điện biên": "dien-bien-xc7",
+        "bac-giang": "bac-giang-xc24",
+        "bac-giang": "bac-giang-xc24",
+        "bac-kan": "bac-kan-xc6",
+        "bắc-kạn": "bac-kan-xc6",
+        "bắc kạn": "bac-kan-xc6",
+        "bac-ninh": "bac-ninh-xc27",
+        "bắc-ninh": "bac-ninh-xc27",
+        "bắc ninh": "bac-ninh-xc27",
+        "cao-bang": "cao-bang-xc4",
+        "cao-bang": "cao-bang-xc4",
+        "dien-bien": "dien-bien-xc11",
+        "điện-biên": "dien-bien-xc11",
+        "điện biên": "dien-bien-xc11",
         "gia-lam": "gia-lam-xc8",
         "gia-lâm": "gia-lam-xc8",
         "gia lâm": "gia-lam-xc8",
-        "ha-giang": "ha-giang-xc9",
-        "hà-giang": "ha-giang-xc9",
-        "hà giang": "ha-giang-xc9",
-        "ha-nam": "ha-nam-xc10",
-        "hà-nam": "ha-nam-xc10",
-        "hà nam": "ha-nam-xc10",
-        "ha-tinh": "ha-tinh-xc11",
-        "hà-tĩnh": "ha-tinh-xc11",
-        "hà tĩnh": "ha-tinh-xc11",
-        "hung-yen": "hung-yen-xc12",
-        "hưng-yên": "hung-yen-xc12",
-        "hưng yên": "hung-yen-xc12",
-        "lai-chau": "lai-chau-xc13",
-        "lai-châu": "lai-chau-xc13",
-        "lai châu": "lai-chau-xc13",
-        "lang-son": "lang-son-xc14",
-        "lạng-sơn": "lang-son-xc14",
-        "lạng sơn": "lang-son-xc14",
-        "lao-cai": "lao-cai-xc15",
-        "lào-cai": "lao-cai-xc15",
-        "lào cai": "lao-cai-xc15",
-        "nam-dinh": "nam-dinh-xc16",
-        "nam-định": "nam-dinh-xc16",
-        "nam định": "nam-dinh-xc16",
-        "nghe-an": "nghe-an-xc17",
-        "nghệ-an": "nghe-an-xc17",
-        "nghệ an": "nghe-an-xc17",
-        "ninh-binh": "ninh-binh-xc18",
-        "ninh-bình": "ninh-binh-xc18",
-        "ninh bình": "ninh-binh-xc18",
-        "phu-tho": "phu-tho-xc19",
-        "phú-thọ": "phu-tho-xc19",
-        "phú thọ": "phu-tho-xc19",
-        "quang-ninh": "quang-ninh-xc20",
-        "quảng-ninh": "quang-ninh-xc20",
-        "quảng ninh": "quang-ninh-xc20",
-        "son-la": "son-la-xc21",
-        "sơn-la": "son-la-xc21",
-        "sơn la": "son-la-xc21",
-        "thai-binh": "thai-binh-xc22",
-        "thái-bình": "thai-binh-xc22",
-        "thái bình": "thai-binh-xc22",
-        "thai-nguyen": "thai-nguyen-xc23",
-        "thái-nguyên": "thai-nguyen-xc23",
-        "thái nguyên": "thai-nguyen-xc23",
-        "thanh-hoa": "thanh-hoa-xc24",
-        "thanh-hóa": "thanh-hoa-xc24",
-        "thanh hóa": "thanh-hoa-xc24",
-        "tuyen-quang": "tuyen-quang-xc25",
-        "tuyên-quang": "tuyen-quang-xc25",
-        "tuyên quang": "tuyen-quang-xc25",
+        "ha-giang": "ha-giang-xc2",
+        "hà-giang": "ha-giang-xc2",
+        "hà giang": "ha-giang-xc2",
+        "ha-nam": "ha-nam-xc35",
+        "hà-nam": "ha-nam-xc35",
+        "hà nam": "ha-nam-xc35",
+        "ha-tinh": "ha-tinh-xc42",
+        "hà-tĩnh": "ha-tinh-xc42",
+        "hà tĩnh": "ha-tinh-xc42",
+        "hung-yen": "hung-yen-xc33",
+        "hưng-yên": "hung-yen-xc33",
+        "hưng yên": "hung-yen-xc33",
+        "lai-chau": "lai-chau-xc12",
+        "lai-châu": "lai-chau-xc12",
+        "lai châu": "lai-chau-xc12",
+        "lang-son": "lang-son-xc20",
+        "lạng-sơn": "lang-son-xc20",
+        "lạng sơn": "lang-son-xc20",
+        "lao-cai": "lao-cai-xc10",
+        "lào-cai": "lao-cai-xc10",
+        "lào cai": "lao-cai-xc10",
+        "nam-dinh": "nam-dinh-xc36",
+        "nam-định": "nam-dinh-xc36",
+        "nam định": "nam-dinh-xc36",
+        "nghe-an": "nghe-an-xc40",
+        "nghệ-an": "nghe-an-xc40",
+        "nghệ an": "nghe-an-xc40",
+        "ninh-binh": "ninh-binh-xc37",
+        "ninh-bình": "ninh-binh-xc37",
+        "ninh bình": "ninh-binh-xc37",
+        "phu-tho": "phu-tho-xc25",
+        "phú-thọ": "phu-tho-xc25",
+        "phú thọ": "phu-tho-xc25",
+        "quang-ninh": "quang-ninh-xc22",
+        "quảng-ninh": "quang-ninh-xc22",
+        "quảng ninh": "quang-ninh-xc22",
+        "son-la": "son-la-xc14",
+        "sơn-la": "son-la-xc14",
+        "sơn la": "son-la-xc14",
+        "thai-binh": "thai-binh-xc34",
+        "thái-bình": "thai-binh-xc34",
+        "thái bình": "thai-binh-xc34",
+        "thai-nguyen": "thai-nguyen-xc19",
+        "thái-nguyên": "thai-nguyen-xc19",
+        "thái nguyên": "thai-nguyen-xc19",
+        "thanh-hoa": "thanh-hoa-xc38",
+        "thanh-hóa": "thanh-hoa-xc38",
+        "thanh hóa": "thanh-hoa-xc38",
+        "tuyen-quang": "tuyen-quang-xc8",
+        "tuyên-quang": "tuyen-quang-xc8",
+        "tuyên quang": "tuyen-quang-xc8",
         "vinh-phuc": "vinh-phuc-xc26",
         "vĩnh-phúc": "vinh-phuc-xc26",
         "vĩnh phúc": "vinh-phuc-xc26",
-        "yen-bai": "yen-bai-xc27",
-        "yên-bái": "yen-bai-xc27",
-        "yên bái": "yen-bai-xc27",
+        "yen-bai": "yen-bai-xc15",
+        "yên-bái": "yen-bai-xc15",
+        "yên bái": "yen-bai-xc15",
 
         # Central provinces
-        "binh-dinh": "binh-dinh-xc28",
-        "bình-định": "binh-dinh-xc28",
-        "bình định": "binh-dinh-xc28",
-        "binh-thuan": "binh-thuan-xc29",
-        "bình-thuận": "binh-thuan-xc29",
-        "bình thuận": "binh-thuan-xc29",
+        "binh-dinh": "binh-dinh-xc52",
+        "bình-định": "binh-dinh-xc52",
+        "bình định": "binh-dinh-xc52",
+        "binh-thuan": "binh-thuan-xc60",
+        "bình-thuận": "binh-thuan-xc60",
+        "bình thuận": "binh-thuan-xc60",
         "da-nang": "da-nang-xc48",
         "đà-nẵng": "da-nang-xc48",
         "đà nẵng": "da-nang-xc48",
-        "dak-lak": "dak-lak-xc30",
-        "đắk-lắk": "dak-lak-xc30",
-        "đắk lắk": "dak-lak-xc30",
-        "dak-nong": "dak-nong-xc31",
-        "đắk-nông": "dak-nong-xc31",
-        "đắk nông": "dak-nong-xc31",
-        "gia-lai": "gia-lai-xc32",
-        "gia-lai": "gia-lai-xc32",
-        "ha-tinh": "ha-tinh-xc11",
-        "hà-tĩnh": "ha-tinh-xc11",
-        "hà tĩnh": "ha-tinh-xc11",
-        "khanh-hoa": "khanh-hoa-xc33",
-        "khánh-hòa": "khanh-hoa-xc33",
-        "khánh hòa": "khanh-hoa-xc33",
-        "kon-tum": "kon-tum-xc34",
-        "kon-tum": "kon-tum-xc34",
-        "lam-dong": "lam-dong-xc35",
-        "lâm-đồng": "lam-dong-xc35",
-        "lâm đồng": "lam-dong-xc35",
-        "nghe-an": "nghe-an-xc17",
-        "nghệ-an": "nghe-an-xc17",
-        "nghệ an": "nghe-an-xc17",
-        "phu-yen": "phu-yen-xc36",
-        "phú-yên": "phu-yen-xc36",
-        "phú yên": "phu-yen-xc36",
-        "quang-binh": "quang-binh-xc37",
-        "quảng-bình": "quang-binh-xc37",
-        "quảng bình": "quang-binh-xc37",
-        "quang-nam": "quang-nam-xc38",
-        "quảng-nam": "quang-nam-xc38",
-        "quảng nam": "quang-nam-xc38",
-        "quang-ngai": "quang-ngai-xc39",
-        "quảng-ngãi": "quang-ngai-xc39",
-        "quảng ngãi": "quang-ngai-xc39",
-        "quang-tri": "quang-tri-xc40",
-        "quảng-trị": "quang-tri-xc40",
-        "quảng trị": "quang-tri-xc40",
-        "thua-thien-hue": "thua-thien-hue-xc41",
-        "thừa-thiên-huế": "thua-thien-hue-xc41",
-        "thừa thiên huế": "thua-thien-hue-xc41",
+        "dak-lak": "dak-lak-xc66",
+        "đắk-lắk": "dak-lak-xc66",
+        "đắk lắk": "dak-lak-xc66",
+        "dak-nong": "dak-nong-xc67",
+        "đắk-nông": "dak-nong-xc67",
+        "đắk nông": "dak-nong-xc67",
+        "gia-lai": "gia-lai-xc64",
+        "gia-lai": "gia-lai-xc64",
+        "ha-tinh": "ha-tinh-xc42",
+        "hà-tĩnh": "ha-tinh-xc42",
+        "hà tĩnh": "ha-tinh-xc42",
+        "khanh-hoa": "khanh-hoa-xc56",
+        "khánh-hòa": "khanh-hoa-xc56",
+        "khánh hòa": "khanh-hoa-xc56",
+        "kon-tum": "kon-tum-xc62",
+        "kon-tum": "kon-tum-xc62",
+        "lam-dong": "lam-dong-xc68",
+        "lâm-đồng": "lam-dong-xc68",
+        "lâm đồng": "lam-dong-xc68",
+        "nghe-an": "nghe-an-xc40",
+        "nghệ-an": "nghe-an-xc40",
+        "nghệ an": "nghe-an-xc40",
+        "phu-yen": "phu-yen-xc54",
+        "phú-yên": "phu-yen-xc54",
+        "phú yên": "phu-yen-xc54",
+        "quang-binh": "quang-binh-xc44",
+        "quảng-bình": "quang-binh-xc44",
+        "quảng bình": "quang-binh-xc44",
+        "quang-nam": "quang-nam-xc49",
+        "quảng-nam": "quang-nam-xc49",
+        "quảng nam": "quang-nam-xc49",
+        "quang-ngai": "quang-ngai-xc51",
+        "quảng-ngãi": "quang-ngai-xc51",
+        "quảng ngãi": "quang-ngai-xc51",
+        "quang-tri": "quang-tri-xc45",
+        "quảng-trị": "quang-tri-xc45",
+        "quảng trị": "quang-tri-xc45",
+        "thua-thien-hue": "thua-thien-hue-xc46",
+        "thừa-thiên-huế": "thua-thien-hue-xc46",
+        "thừa thiên huế": "thua-thien-hue-xc46",
 
         # Southern provinces
-        "an-giang": "an-giang-xc42",
-        "an-giang": "an-giang-xc42",
-        "ba-ria-vung-tau": "ba-ria-vung-tau-xc43",
-        "bà-rịa-vũng-tàu": "ba-ria-vung-tau-xc43",
-        "bà rịa vũng tàu": "ba-ria-vung-tau-xc43",
-        "bac-lieu": "bac-lieu-xc44",
-        "bạc-liêu": "bac-lieu-xc44",
-        "bạc liêu": "bac-lieu-xc44",
-        "ben-tre": "ben-tre-xc45",
-        "bến-tre": "ben-tre-xc45",
-        "bến tre": "ben-tre-xc45",
-        "binh-duong": "binh-duong-xc46",
-        "bình-dương": "binh-duong-xc46",
-        "bình dương": "binh-duong-xc46",
-        "binh-phuoc": "binh-phuoc-xc47",
-        "bình-phước": "binh-phuoc-xc47",
-        "bình phước": "binh-phuoc-xc47",
-        "ca-mau": "ca-mau-xc49",
-        "cà-mau": "ca-mau-xc49",
-        "cà mau": "ca-mau-xc49",
-        "can-tho": "can-tho-xc55",
-        "cần-thơ": "can-tho-xc55",
-        "cần thơ": "can-tho-xc55",
-        "dong-nai": "dong-nai-xc50",
-        "đồng-nai": "dong-nai-xc50",
-        "đồng nai": "dong-nai-xc50",
-        "dong-thap": "dong-thap-xc51",
-        "đồng-tháp": "dong-thap-xc51",
-        "đồng tháp": "dong-thap-xc51",
-        "hai-duong": "hai-duong-xc52",
-        "hải-dương": "hai-duong-xc52",
-        "hải dương": "hai-duong-xc52",
-        "hau-giang": "hau-giang-xc53",
-        "hậu-giang": "hau-giang-xc53",
-        "hậu giang": "hau-giang-xc53",
-        "hoa-binh": "hoa-binh-xc54",
-        "hòa-bình": "hoa-binh-xc54",
-        "hòa bình": "hoa-binh-xc54",
-        "hung-yen": "hung-yen-xc12",
-        "hưng-yên": "hung-yen-xc12",
-        "hưng yên": "hung-yen-xc12",
-        "kien-giang": "kien-giang-xc56",
-        "kiên-giang": "kien-giang-xc56",
-        "kiên giang": "kien-giang-xc56",
-        "long-an": "long-an-xc57",
-        "long-an": "long-an-xc57",
-        "soc-trang": "soc-trang-xc58",
-        "sóc-trăng": "soc-trang-xc58",
-        "sóc trăng": "soc-trang-xc58",
-        "tay-ninh": "tay-ninh-xc59",
-        "tây-ninh": "tay-ninh-xc59",
-        "tây ninh": "tay-ninh-xc59",
-        "tien-giang": "tien-giang-xc60",
-        "tiền-giang": "tien-giang-xc60",
-        "tiền giang": "tien-giang-xc60",
-        "tra-vinh": "tra-vinh-xc61",
-        "trà-vinh": "tra-vinh-xc61",
-        "trà vinh": "tra-vinh-xc61",
-        "vinh-long": "vinh-long-xc62",
-        "vĩnh-long": "vinh-long-xc62",
-        "vĩnh long": "vinh-long-xc62"
+        "an-giang": "an-giang-xc89",
+        "an-giang": "an-giang-xc89",
+        "ba-ria-vung-tau": "ba-ria-vung-tau-xc77",
+        "bà-rịa-vũng-tàu": "ba-ria-vung-tau-xc77",
+        "bà rịa vũng tàu": "ba-ria-vung-tau-xc77",
+        "bac-lieu": "bac-lieu-xc95",
+        "bạc-liêu": "bac-lieu-xc95",
+        "bạc liêu": "bac-lieu-xc95",
+        "ben-tre": "ben-tre-xc83",
+        "bến-tre": "ben-tre-xc83",
+        "bến tre": "ben-tre-xc83",
+        "binh-duong": "binh-duong-xc74",
+        "bình-dương": "binh-duong-xc74",
+        "bình dương": "binh-duong-xc74",
+        "binh-phuoc": "binh-phuoc-xc70",
+        "bình-phước": "binh-phuoc-xc70",
+        "bình phước": "binh-phuoc-xc70",
+        "ca-mau": "ca-mau-xc96",
+        "cà-mau": "ca-mau-xc96",
+        "cà mau": "ca-mau-xc96",
+        "can-tho": "can-tho-xc92",
+        "cần-thơ": "can-tho-xc92",
+        "cần thơ": "can-tho-xc92",
+        "dong-nai": "dong-nai-xc75",
+        "đồng-nai": "dong-nai-xc75",
+        "đồng nai": "dong-nai-xc75",
+        "dong-thap": "dong-thap-xc87",
+        "đồng-tháp": "dong-thap-xc87",
+        "đồng tháp": "dong-thap-xc87",
+        "hai-duong": "hai-duong-xc30",
+        "hải-dương": "hai-duong-xc30",
+        "hải dương": "hai-duong-xc30",
+        "hau-giang": "hau-giang-xc93",
+        "hậu-giang": "hau-giang-xc93",
+        "hậu giang": "hau-giang-xc93",
+        "hoa-binh": "hoa-binh-xc17",
+        "hòa-bình": "hoa-binh-xc17",
+        "hòa bình": "hoa-binh-xc17",
+        "hung-yen": "hung-yen-xc33",
+        "hưng-yên": "hung-yen-xc33",
+        "hưng yên": "hung-yen-xc33",
+        "kien-giang": "kien-giang-xc91",
+        "kiên-giang": "kien-giang-xc91",
+        "kiên giang": "kien-giang-xc91",
+        "long-an": "long-an-xc80",
+        "long-an": "long-an-xc80",
+        "soc-trang": "soc-trang-xc94",
+        "sóc-trăng": "soc-trang-xc94",
+        "sóc trăng": "soc-trang-xc94",
+        "tay-ninh": "tay-ninh-xc72",
+        "tây-ninh": "tay-ninh-xc72",
+        "tây ninh": "tay-ninh-xc72",
+        "tien-giang": "tien-giang-xc82",
+        "tiền-giang": "tien-giang-xc82",
+        "tiền giang": "tien-giang-xc82",
+        "tra-vinh": "tra-vinh-xc84",
+        "trà-vinh": "tra-vinh-xc84",
+        "trà vinh": "tra-vinh-xc84",
+        "vinh-long": "vinh-long-xc86",
+        "vĩnh-long": "vinh-long-xc86",
+        "vĩnh long": "vinh-long-xc86"
     }
     city_code = city_map.get(city_slug, "")
 
     if city_code:
-        base = f"https://nhadat247.com.vn/mua-ban-nha-dat-{city_code}-ci38.html"
+        base = f"https://nhadat247.com.vn/{action}-nha-dat-{city_code}-{category_code}.html"
     else:
-        base = "https://nhadat247.com.vn/mua-ban-nha-dat-ci38.html"
+        base = f"https://nhadat247.com.vn/{action}-nha-dat-{category_code}.html"
 
+    context.log.info(f"🔗 Generated URL: {base} for city={city}, propertyType={propType}, rentOrBuy={rentOrBuy}")
+    
     # hiện tại chỉ trả 1 trang, dùng max_pages nếu cần mở rộng
     return [base]
 
 
 @op(description="Run requests-based scraping and return DataFrame", out=Out(io_manager_key="fs_io_manager"))
-def requests_scraping_op(context, urls: List[str]) -> pd.DataFrame:
+def requests_scraping_op(context, urls: List[str], search_criteria: Dict) -> pd.DataFrame:
     """
     Stable requests-based scraping without Selenium DNS issues.
     """
@@ -283,6 +327,26 @@ def requests_scraping_op(context, urls: List[str]) -> pd.DataFrame:
         limit_each_page = context.op_config.get("limit_each_page", 5)
 
     context.log.info(f"🚀 Starting requests scraping with {len(urls)} URLs, limit_each_page={limit_each_page}...")
+    context.log.info(f"🔍 Search criteria type: {type(search_criteria)}")
+    context.log.info(f"🔍 Search criteria: {search_criteria}")
+
+    # Convert SearchCoordinate to dict if needed
+    if hasattr(search_criteria, '_asdict'):  # NamedTuple-like
+        search_dict = search_criteria._asdict()
+    elif hasattr(search_criteria, '__dict__'):  # Object with attributes
+        search_dict = search_criteria.__dict__
+    elif isinstance(search_criteria, dict):
+        search_dict = search_criteria
+    else:
+        # Try to access as dict-like
+        search_dict = dict(search_criteria) if hasattr(search_criteria, 'keys') else {}
+
+    search_city = search_dict.get("city", "")
+    search_property_type = search_dict.get("propertyType", "")
+    search_rent_or_buy = search_dict.get("rentOrBuy", "")
+    search_radius = search_dict.get("radius", 0)
+
+    context.log.info(f"🔍 Extracted - city: {search_city}, propertyType: {search_property_type}, rentOrBuy: {search_rent_or_buy}, radius: {search_radius}")
 
     df = requests_scraping(
         urls=urls,
@@ -297,20 +361,42 @@ def requests_scraping_op(context, urls: List[str]) -> pd.DataFrame:
         context.log.warning("⚠️ No data scraped. Returning empty DataFrame with schema.")
         df = _empty_df()
 
-    context.log.info(f"✅ Scraped {len(df)} properties.")
+    # Add search criteria info to the DataFrame
+    df["search_city"] = search_city
+    df["search_property_type"] = search_property_type
+    df["search_rent_or_buy"] = search_rent_or_buy
+    df["search_radius"] = search_radius
+
+    context.log.info(f"✅ Scraped {len(df)} properties for city: {search_city}.")
     return df
 
 
 @op(description="Collects Search Criteria and create dynamic outputs", out=DynamicOut(io_manager_key="fs_io_manager"))
 def collect_search_criterias(context, search_criterias: List[SearchCoordinate]):
     for search in search_criterias:
+        # Convert SearchCoordinate to dict if needed
+        if hasattr(search, '_asdict'):  # NamedTuple-like
+            search_dict = search._asdict()
+        elif hasattr(search, '__dict__'):  # Object with attributes
+            search_dict = search.__dict__
+        elif isinstance(search, dict):
+            search_dict = search
+        else:
+            # Try to access as dict-like
+            search_dict = dict(search) if hasattr(search, 'keys') else {}
+
+        city = search_dict.get("city", "")
+        rent_or_buy = search_dict.get("rentOrBuy", "")
+        property_type = search_dict.get("propertyType", "")
+        radius = search_dict.get("radius", 0)
+
         key = (
             "_".join(
                 [
-                    search["city"],
-                    search["rentOrBuy"],
-                    search["propertyType"],
-                    str(search.get("radius", 0)),
+                    city,
+                    rent_or_buy,
+                    property_type,
+                    str(radius),
                 ]
             )
             .replace("-", "_")
@@ -338,7 +424,7 @@ def collect_properties(properties):
 @graph(description="Scrape properties using requests (no Selenium DNS issues)")
 def requests_scrape_properties(search_criteria):
     urls = generate_urls_from_criteria(search_criteria)
-    return requests_scraping_op(urls)
+    return requests_scraping_op(urls, search_criteria)
 
 
 @graph(description="Merge scraped data into Delta table")
@@ -357,12 +443,13 @@ def merge_staging_to_delta_table_composite(properties):
     ),
 )
 def scrape_realestate():
-    search_criterias = collect_search_criterias().map(requests_scrape_properties)
+    search_criterias = collect_search_criterias()
+    scrape_results = search_criterias.map(requests_scrape_properties)
     merge = merge_staging_to_delta_table_composite.alias("merge_staging_to_delta_table")
-    merged_data = merge(collect_properties(search_criterias.collect()))
+    merged_data = merge(collect_properties(scrape_results.collect()))
 
-    # Export to PostgreSQL after merging
-    export_result = export_to_postgres_op(merged_data)
+    # Export to PostgreSQL after merging - truyền tất cả search criterias
+    export_result = export_to_postgres_op(merged_data, search_criterias.collect())
 
     # Run data exploration
     data_exploration(merged_data)

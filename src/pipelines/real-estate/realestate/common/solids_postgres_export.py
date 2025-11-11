@@ -5,12 +5,12 @@ Solids for PostgreSQL export operations in Dagster pipeline
 
 import logging
 from typing import Dict, Any
-from dagster import op, get_dagster_logger
+from dagster import op, Out, get_dagster_logger
 
 logger = logging.getLogger(__name__)
 
-@op(description="Export data from Delta Lake to PostgreSQL")
-def export_to_postgres_op(context, merged_data: Dict[str, Any]) -> Dict[str, Any]:
+@op(description="Export data from Delta Lake to PostgreSQL", out={"result": Out(io_manager_key="fs_io_manager")})
+def export_to_postgres_op(context, merged_data: Dict[str, Any], search_criterias) -> Dict[str, Any]:
     """
     Export dữ liệu từ Delta Lake (MinIO) sang PostgreSQL
 
@@ -118,7 +118,21 @@ def export_to_postgres_op(context, merged_data: Dict[str, Any]) -> Dict[str, Any
 
         # Export dữ liệu
         table_name = "real_estate_properties"
-        exporter.export_data(parquet_files, table_name)
+
+        # Lấy search criteria đầu tiên từ dynamic output
+        search_criteria = {}
+        if hasattr(search_criterias, '__iter__'):
+            # Nếu là dynamic output, lấy item đầu tiên
+            try:
+                first_item = next(iter(search_criterias)) if search_criterias else {}
+                search_criteria = first_item if isinstance(first_item, dict) else {}
+            except:
+                search_criteria = {}
+        elif isinstance(search_criterias, dict):
+            search_criteria = search_criterias
+
+        log.info(f"🔍 Export với search criteria: {search_criteria}")
+        exporter.export_data(parquet_files, table_name, search_criteria)
 
         # Tạo indexes
         exporter.create_indexes(table_name)
