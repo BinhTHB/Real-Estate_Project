@@ -460,7 +460,7 @@ class MinioToPostgresExporter:
             logger.error(f"❌ Lỗi khi lấy danh sách file với boto3: {e}")
             return []
 
-    def export_data(self, parquet_files: List[str], table_name: str):
+    def export_data(self, parquet_files: List[str], table_name: str, search_criteria: Dict[str, Any] = None):
         """Export tất cả dữ liệu từ Parquet files sang PostgreSQL"""
         logger.info(f"🚀 Bắt đầu export {len(parquet_files)} file Parquet sang {table_name}")
 
@@ -488,12 +488,25 @@ class MinioToPostgresExporter:
             logger.warning("⚠️ Không có dữ liệu để export")
             return
 
-        logger.info(f"📊 Tổng số bản ghi sau deduplicate: {len(all_data_df)}")
+        # Filter theo search criteria nếu có
+        if search_criteria and search_criteria.get('city'):
+            city_filter = search_criteria.get('city')
+            logger.info(f"🔍 Filter dữ liệu theo city: {city_filter}")
 
-        # Tạo bảng từ dữ liệu đã deduplicate
+            # Filter dựa trên cột search_city
+            if 'search_city' in all_data_df.columns:
+                filtered_df = all_data_df[all_data_df['search_city'] == city_filter]
+                logger.info(f"📊 Sau khi filter: {len(filtered_df)}/{len(all_data_df)} bản ghi cho city '{city_filter}'")
+                all_data_df = filtered_df
+            else:
+                logger.warning("⚠️ Không tìm thấy cột 'search_city' để filter")
+
+        logger.info(f"📊 Tổng số bản ghi sau filter: {len(all_data_df)}")
+
+        # Tạo bảng từ dữ liệu đã filter
         self.create_table_from_dataframe(all_data_df, table_name)
 
-        # Insert dữ liệu đã deduplicate
+        # Insert dữ liệu đã filter
         self.insert_dataframe_to_postgres(all_data_df, table_name)
 
         logger.info("✅ Hoàn thành export dữ liệu")

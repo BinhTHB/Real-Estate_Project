@@ -290,8 +290,10 @@ Export dữ liệu từ Delta Lake sang PostgreSQL đã được tích hợp tr�
 1. ✅ **Scrape dữ liệu** từ nhadat247.com.vn
 2. ✅ **Lưu vào Delta Lake** trên MinIO S3-compatible
 3. ✅ **Export sang PostgreSQL** với schema auto-detection
-4. ✅ **Tạo indexes** cho performance
-5. ✅ **Verify dữ liệu** sau export
+4. ✅ **UPSERT Logic**: Tránh duplicate data với INSERT ... ON CONFLICT ... DO UPDATE
+5. ✅ **Primary Key**: Sử dụng `propertydetails_propertyid` làm unique identifier
+6. ✅ **Tạo indexes** cho performance
+7. ✅ **Verify dữ liệu** sau export
 
 
 ### Cấu hình PostgreSQL

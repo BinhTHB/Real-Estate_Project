@@ -1,6 +1,11 @@
 # AI Coding Assistant Instructions for Practical Data Engineering Project
 
 ## Project Overview
+
+before running any file, activate the virtual environment in `src/pipelines/real-estate/.venv`
+
+all project code is under `src/pipelines/real-estate/`
+
 This is a real estate data engineering pipeline that scrapes property listings from Vietnamese real estate websites (nhadat247.com.vn), processes data using Delta Lake, and enables exploration through Jupyter notebooks. The project demonstrates modern data engineering practices with Dagster orchestration, MinIO storage, and containerized deployment.
 
 ## Architecture & Data Flow
@@ -151,6 +156,3 @@ realestate/
 - Monitor MinIO bucket for data persistence</content>
 <parameter name="filePath">.github/copilot-instructions.md
 
-before running any file, activate the virtual environment in `src/pipelines/real-estate/.venv`
-
-all project code is under `src/pipelines/real-estate/`
