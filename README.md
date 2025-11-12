@@ -82,9 +82,11 @@ cd Real-Estate_Project
 ```bash
 cd src/pipelines/real-estate
 
-# Giải nén venv_backup.zip
+python -m venv venv
 
 .\venv\Scripts\activate  
+
+pip install -r requirements.txt
 
 ```
 
