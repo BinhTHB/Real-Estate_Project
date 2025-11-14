@@ -1,0 +1,3 @@
+[tool.dagster]
+module_name = "realestate"
+working_directory = "src/pipelines/real-estate"
