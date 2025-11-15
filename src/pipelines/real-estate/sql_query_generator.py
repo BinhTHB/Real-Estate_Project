@@ -19,10 +19,10 @@ class RealEstateSQLGenerator:
         return f"""
         SELECT
             COUNT(*) as total_properties,
-            AVG(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)) as avg_price,
-            MIN(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)) as min_price,
-            MAX(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)) as max_price,
-            AVG(CAST(regexp_replace(dien_tich, '[^0-9.]', '', 'g') AS FLOAT)) as avg_area,
+            to_char(AVG(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999,999') as avg_price,
+            to_char(MIN(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999,999') as min_price,
+            to_char(MAX(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999,999') as max_price,
+            to_char(AVG(CAST(regexp_replace(dien_tich, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999.99') as avg_area,
             COUNT(DISTINCT ia_chi) as cities_count
         FROM {table_name}
         WHERE muc_gia IS NOT NULL
@@ -37,11 +37,11 @@ class RealEstateSQLGenerator:
         SELECT
             ia_chi as city,
             COUNT(*) as property_count,
-            AVG(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)) as avg_price,
-            MIN(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)) as min_price,
-            MAX(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)) as max_price,
-            AVG(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT) /
-                NULLIF(CAST(regexp_replace(dien_tich, '[^0-9.]', '', 'g') AS FLOAT), 0)) as avg_price_per_sqm
+            to_char(AVG(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999,999') as avg_price,
+            to_char(MIN(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999,999') as min_price,
+            to_char(MAX(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999,999') as max_price,
+            to_char(AVG(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT) /
+                NULLIF(CAST(regexp_replace(dien_tich, '[^0-9.]', '', 'g') AS FLOAT), 0)), 'FM999,999,999,999') as avg_price_per_sqm
         FROM {table_name}
         WHERE CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT) > 0
           AND CAST(regexp_replace(dien_tich, '[^0-9.]', '', 'g') AS FLOAT) > 0
@@ -59,8 +59,8 @@ class RealEstateSQLGenerator:
             ia_chi as location,
             COUNT(*) as count,
             ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage,
-            AVG(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)) as avg_price,
-            AVG(CAST(regexp_replace(dien_tich, '[^0-9.]', '', 'g') AS FLOAT)) as avg_area
+            to_char(AVG(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999,999') as avg_price,
+            to_char(AVG(CAST(regexp_replace(dien_tich, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999.99') as avg_area
         FROM {table_name}
         WHERE ia_chi IS NOT NULL
           AND regexp_replace(muc_gia, '[^0-9.]', '', 'g') != ''
@@ -76,8 +76,8 @@ class RealEstateSQLGenerator:
         SELECT
             DATE(ngay_ang) as date,
             COUNT(*) as daily_count,
-            AVG(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)) as avg_price,
-            AVG(CAST(regexp_replace(dien_tich, '[^0-9.]', '', 'g') AS FLOAT)) as avg_area
+            to_char(AVG(CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999,999') as avg_price,
+            to_char(AVG(CAST(regexp_replace(dien_tich, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999.99') as avg_area
         FROM {table_name}
         WHERE ngay_ang IS NOT NULL
           AND regexp_replace(muc_gia, '[^0-9.]', '', 'g') != ''
@@ -100,7 +100,7 @@ class RealEstateSQLGenerator:
             END as price_range,
             COUNT(*) as count,
             ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage,
-            AVG(CAST(regexp_replace(dien_tich, '[^0-9.]', '', 'g') AS FLOAT)) as avg_area
+            to_char(AVG(CAST(regexp_replace(dien_tich, '[^0-9.]', '', 'g') AS FLOAT)), 'FM999,999,999.99') as avg_area
         FROM {table_name}
         WHERE CAST(regexp_replace(muc_gia, '[^0-9.]', '', 'g') AS FLOAT) > 0
           AND regexp_replace(muc_gia, '[^0-9.]', '', 'g') != ''
@@ -121,9 +121,9 @@ class RealEstateSQLGenerator:
         SELECT
             COALESCE(district, city) as area,
             COUNT(*) as property_count,
-            AVG(price) as avg_price,
-            MAX(price) as max_price,
-            AVG(price/area) as price_per_sqm
+            to_char(AVG(price), 'FM999,999,999,999') as avg_price,
+            to_char(MAX(price), 'FM999,999,999,999') as max_price,
+            to_char(AVG(price/area), 'FM999,999,999,999') as price_per_sqm
         FROM {table_name}
         WHERE price > 0 AND area > 0
         GROUP BY COALESCE(district, city)

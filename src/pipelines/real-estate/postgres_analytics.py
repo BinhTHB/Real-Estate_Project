@@ -16,6 +16,16 @@ from typing import Optional, List, Dict, Any
 from sql_query_generator import RealEstateSQLGenerator
 import argparse
 
+# Thêm import cho plotting
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use('Agg')  # Use non-interactive backend for server environments
+    PLOTTING_AVAILABLE = True
+except ImportError:
+    PLOTTING_AVAILABLE = False
+    print("⚠️ Matplotlib không khả dụng, bỏ qua tính năng vẽ biểu đồ")
+
 # Cấu hình logging
 logging.basicConfig(
     level=logging.INFO,
@@ -603,9 +613,156 @@ class MinioToPostgresExporter:
             print(f"\n=== {query_name.upper()} ===")
             print(df.to_string(index=False))
 
+    def plot_query_results(self, results: Dict[str, Any], save_path: Optional[str] = None):
+        """Vẽ biểu đồ từ kết quả queries"""
+        if not PLOTTING_AVAILABLE:
+            print("⚠️ Matplotlib không khả dụng, không thể vẽ biểu đồ")
+            return
+
+        print("\n📊 Đang tạo biểu đồ...")
+
+        # Tạo figure với subplots
+        fig = plt.figure(figsize=(20, 16))
+        fig.suptitle('Phân tích bất động sản', fontsize=16, fontweight='bold')
+
+        plot_count = 0
+        max_plots = 6
+
+        # 1. Basic stats
+        if 'basic_stats' in results and not results['basic_stats'].empty and plot_count < max_plots:
+            plot_count += 1
+            plt.subplot(2, 3, plot_count)
+            basic_stats = results['basic_stats'].iloc[0]
+
+            labels = ['Tổng BĐS', 'Giá TB\n(tỷ)', 'Diện tích TB\n(m²)', 'Số TP']
+            try:
+                avg_price_str = str(basic_stats['avg_price'])
+                avg_price_val = float(avg_price_str.replace(',', '')) / 1e9
+            except:
+                avg_price_val = 0
+
+            values = [
+                int(basic_stats['total_properties']),
+                avg_price_val,
+                float(basic_stats['avg_area']),
+                int(basic_stats['cities_count'])
+            ]
+
+            bars = plt.bar(labels, values, color=['skyblue', 'lightgreen', 'lightcoral', 'gold'])
+            plt.title('Thống kê cơ bản', fontsize=12, fontweight='bold')
+            plt.ylabel('Giá trị')
+            plt.xticks(rotation=45, ha='right')
+
+            # Thêm giá trị trên cột
+            for bar, value in zip(bars, values):
+                plt.text(bar.get_x() + bar.get_width()/2., bar.get_height() + bar.get_height()*0.01,
+                        f'{value:.1f}', ha='center', va='bottom', fontsize=8)
+
+        # 2. Price by city (Top 5)
+        if 'price_by_city' in results and not results['price_by_city'].empty and plot_count < max_plots:
+            plot_count += 1
+            plt.subplot(2, 3, plot_count)
+            price_city = results['price_by_city'].head(5)
+
+            cities = [str(city)[:15] + '...' if len(str(city)) > 15 else str(city) for city in price_city['city']]
+
+            prices = []
+            for price in price_city['avg_price']:
+                try:
+                    price_str = str(price)
+                    price_val = float(price_str.replace(',', '')) / 1e9
+                    prices.append(price_val)
+                except:
+                    prices.append(0)
+
+            plt.bar(range(len(cities)), prices, color='steelblue', alpha=0.8)
+            plt.title('Giá TB theo thành phố (Top 5)', fontsize=12, fontweight='bold')
+            plt.xlabel('Thành phố')
+            plt.ylabel('Giá TB (tỷ VNĐ)')
+            plt.xticks(range(len(cities)), cities, rotation=45, ha='right', fontsize=8)
+
+        # 3. Price ranges
+        if 'price_ranges' in results and not results['price_ranges'].empty and plot_count < max_plots:
+            plot_count += 1
+            plt.subplot(2, 3, plot_count)
+            price_ranges = results['price_ranges']
+
+            plt.pie(price_ranges['percentage'], labels=price_ranges['price_range'],
+                   autopct='%1.1f%%', startangle=90)
+            plt.title('Phân bố theo khoảng giá', fontsize=12, fontweight='bold')
+            plt.axis('equal')
+
+        # 4. Location distribution (Top 5)
+        if 'location_distribution' in results and not results['location_distribution'].empty and plot_count < max_plots:
+            plot_count += 1
+            plt.subplot(2, 3, plot_count)
+            location_dist = results['location_distribution'].head(5)
+
+            locations = [loc[:20] + '...' if len(loc) > 20 else loc for loc in location_dist['location']]
+            counts = location_dist['count']
+
+            plt.barh(range(len(locations)), counts, color='teal', alpha=0.7)
+            plt.title('Phân bố theo khu vực (Top 5)', fontsize=12, fontweight='bold')
+            plt.xlabel('Số lượng')
+            plt.yticks(range(len(locations)), locations, fontsize=8)
+
+        # 5. Recent trends (if available)
+        if 'recent_trends' in results and not results['recent_trends'].empty and plot_count < max_plots:
+            plot_count += 1
+            plt.subplot(2, 3, plot_count)
+            trends = results['recent_trends'].copy()
+            try:
+                trends['date'] = pd.to_datetime(trends['date'])
+                trends = trends.sort_values('date').tail(10)  # Last 10 days
+
+                dates = trends['date'].dt.strftime('%m-%d')
+                prices = []
+                for price in trends['avg_price']:
+                    try:
+                        price_str = str(price)
+                        price_val = float(price_str.replace(',', '')) / 1e9
+                        prices.append(price_val)
+                    except:
+                        prices.append(0)
+
+                plt.plot(range(len(dates)), prices, marker='o', linewidth=2, color='darkgreen')
+                plt.title('Xu hướng giá (10 ngày gần nhất)', fontsize=12, fontweight='bold')
+                plt.xlabel('Ngày')
+                plt.ylabel('Giá TB (tỷ VNĐ)')
+                plt.xticks(range(len(dates)), dates, rotation=45, ha='right', fontsize=8)
+            except Exception as e:
+                print(f"⚠️ Không thể vẽ xu hướng thời gian: {e}")
+
+        # 6. Area distribution
+        if 'location_distribution' in results and not results['location_distribution'].empty and plot_count < max_plots:
+            plot_count += 1
+            plt.subplot(2, 3, plot_count)
+            location_dist = results['location_distribution'].head(5)
+
+            locations = [loc[:20] + '...' if len(loc) > 20 else loc for loc in location_dist['location']]
+            areas = location_dist['avg_area']
+
+            plt.bar(range(len(locations)), areas, color='darkorange', alpha=0.8)
+            plt.title('Diện tích TB theo khu vực', fontsize=12, fontweight='bold')
+            plt.xlabel('Khu vực')
+            plt.ylabel('Diện tích TB (m²)')
+            plt.xticks(range(len(locations)), locations, rotation=45, ha='right', fontsize=8)
+
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"💾 Đã lưu biểu đồ vào: {save_path}")
+        else:
+            plt.show()
+
+        print("✅ Hoàn thành vẽ biểu đồ")
+
 def main():
     parser = argparse.ArgumentParser(description='Chạy analytics queries trên dữ liệu bất động sản trong PostgreSQL')
     parser.add_argument('--limit-results', type=int, default=10, help='Giới hạn số dòng kết quả queries')
+    parser.add_argument('--plot', action='store_true', help='Tạo biểu đồ từ kết quả analytics')
+    parser.add_argument('--save-plot', type=str, help='Lưu biểu đồ vào file (ví dụ: charts.png)')
 
     args = parser.parse_args()
 
@@ -677,6 +834,10 @@ def main():
             limit_results=args.limit_results
         )
         exporter.print_query_results(query_results)
+
+        # Vẽ biểu đồ nếu được yêu cầu
+        if args.plot or args.save_plot:
+            exporter.plot_query_results(query_results, args.save_plot)
 
         logger.info(" Hoàn thành generate queries!")
 
