@@ -144,17 +144,53 @@ def process_single_property(url: str) -> dict:
                         values.append(clean_text)
                         break
 
-        # Extract price - use regex pattern from debug
-        price_match = re.search(r'(\d+(?:\.\d+)?\s*(?:tỷ|triệu|VNĐ|đ|USD|\$))', response.text, re.IGNORECASE)
-        if price_match:
+        # Extract price - use the input with class "js-gia-bds" which is most accurate
+        price_text = None
+        price_input = soup.find('input', class_='js-gia-bds')
+        if price_input and price_input.get('value'):
+            raw_value = price_input['value'].strip()
+            # Clean to digits only
+            cleaned = re.sub(r'\D', '', raw_value)
+            if cleaned:
+                price_text = cleaned
+            else:
+                # If no digits, check if page has "Thỏa thuận"
+                if 'Thỏa thuận' in response.text or 'thỏa thuận' in response.text.lower():
+                    price_text = 'Thỏa thuận'
+                else:
+                    # Fallback: use the raw value
+                    price_text = raw_value
+        
+        if price_text:
             titles.append("Mức giá")
-            values.append(price_match.group(1))
+            values.append(price_text)
 
-        # Extract area - use regex pattern from debug
-        area_match = re.search(r'(\d+(?:\.\d+)?\s*(?:m²|m2|mét|vuông))', response.text, re.IGNORECASE)
-        if area_match:
+        # Extract area - find the value span in the item containing "Diện tích"
+        area_text = None
+        info_items = soup.find_all('div', class_=re.compile(r're__pr-short-info-item'))
+        for item in info_items:
+            if 'Diện tích' in item.get_text():
+                area_value = item.find('span', class_=re.compile(r're__pr-specs-content-item-value|value'))
+                if area_value:
+                    area_text = area_value.get_text(strip=True)
+                    break
+        if not area_text:
+            # Fallback: look for the area after "Diện tích" label
+            area_elem = soup.find(text=re.compile(r'Diện tích', re.IGNORECASE))
+            if area_elem:
+                parent = area_elem.parent if area_elem.parent else area_elem
+                area_match = re.search(r'(\d+(?:\.\d+)?\s*(?:m²|m2|mét|vuông))', parent.get_text(), re.IGNORECASE)
+                if area_match:
+                    area_text = area_match.group(1).strip()
+        if not area_text:
+            # Last fallback to the original regex on the whole page
+            area_match = re.search(r'(\d+(?:\.\d+)?\s*(?:m²|m2|mét|vuông))', response.text, re.IGNORECASE)
+            if area_match:
+                area_text = area_match.group(1)
+        
+        if area_text:
             titles.append("Diện tích")
-            values.append(area_match.group(1))
+            values.append(area_text)
 
         # Extract coordinates
         lat, lon = extract_coordinates(response.text)

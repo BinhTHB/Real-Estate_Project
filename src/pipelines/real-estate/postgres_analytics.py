@@ -52,7 +52,7 @@ class MinioToPostgresExporter:
             # Test connection
             with self.engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            logger.info("✅ Kết nối PostgreSQL thành công")
+            logger.info(" Kết nối PostgreSQL thành công")
         except SQLAlchemyError as e:
             logger.error(f"❌ Lỗi kết nối PostgreSQL: {e}")
             raise
@@ -587,7 +587,7 @@ class MinioToPostgresExporter:
         if run_queries:
             try:
                 for query_name, query_sql in queries.items():
-                    logger.info(f"🔍 Chạy query: {query_name}")
+                    logger.info(f" Chạy query: {query_name}")
                     with self.engine.connect() as conn:
                         result = conn.execute(text(query_sql))
                         df = pd.DataFrame(result.fetchall(), columns=result.keys())
@@ -633,7 +633,7 @@ def main():
             POSTGRES_CONFIG['database'] = creds.get('postgresql', {}).get('database')
             POSTGRES_CONFIG['user'] = creds.get('postgresql', {}).get('user')
             POSTGRES_CONFIG['password'] = creds.get('postgresql', {}).get('password')
-            logger.info(f"✅ Đã tải credentials từ: {creds_file}")
+            logger.info(f"Đã tải credentials từ: {creds_file}")
         except Exception as e:
             logger.warning(f"⚠️ Lỗi khi tải credentials: {e}")
 
@@ -670,7 +670,7 @@ def main():
 
         # Chỉ chạy queries trên dữ liệu đã có
         table_name = "real_estate_properties"
-        logger.info("🔍 Generating và chạy các câu lệnh SQL truy vấn...")
+        logger.info("Generating và chạy các câu lệnh SQL truy vấn...")
         query_results = exporter.generate_and_run_queries(
             table_name=table_name,
             run_queries=True,
@@ -678,10 +678,10 @@ def main():
         )
         exporter.print_query_results(query_results)
 
-        logger.info("🎉 Hoàn thành generate queries!")
+        logger.info(" Hoàn thành generate queries!")
 
     except Exception as e:
-        logger.error(f"❌ Lỗi trong quá trình chạy queries: {e}")
+        logger.error(f" Lỗi trong quá trình chạy queries: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
